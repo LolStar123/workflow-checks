@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
+import argparse
 import ast
 import re
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 LEDGER = ROOT / "poe" / "poe-ledger"
 FAUSTUS = ROOT / "poe" / "faustus_flips"
 ASSET_LINK = re.compile(r"(?:src|href)\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
@@ -45,6 +46,15 @@ def check_static_links() -> list[str]:
 
 
 def main() -> int:
+    global ROOT, LEDGER, FAUSTUS
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=ROOT, help="original mixed-project workspace")
+    args = parser.parse_args()
+    ROOT = args.root.resolve()
+    LEDGER = ROOT / "poe" / "poe-ledger"
+    FAUSTUS = ROOT / "poe" / "faustus_flips"
+    if not LEDGER.is_dir() or not FAUSTUS.is_dir():
+        raise SystemExit("Ledger projects are not in this checkout. Pass --root pointing to the original workspace.")
     failures = check_python() + check_static_links()
     if failures:
         raise SystemExit("\n".join(failures))

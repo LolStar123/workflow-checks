@@ -6,6 +6,7 @@ echoed to logs. Add ``secret-scan: allow`` to a deliberately safe fixture line.
 
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
 import re
@@ -77,12 +78,10 @@ def scan_repository(repo_root: Path) -> list[tuple[str, int, str]]:
 
 
 def main() -> int:
-    repo_root = Path(
-        subprocess.check_output(
-            ["git", "rev-parse", "--show-toplevel"],
-            text=True,
-        ).strip()
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1],
+                        help="Git checkout to scan; defaults to this checkout")
+    repo_root = parser.parse_args().root.resolve()
     findings = scan_repository(repo_root)
     if findings:
         print("Potential tracked credential literals found:", file=sys.stderr)

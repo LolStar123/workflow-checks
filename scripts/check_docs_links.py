@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 MARKDOWN_LINK = re.compile(r"!?\[[^]]*\]\(([^)]+)\)")
 EXTERNAL = ("http:", "https:", "//", "mailto:", "data:")
 
@@ -25,10 +25,21 @@ def link_target(raw: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--paths-json", default=None)
+    parser.add_argument("--root", type=Path, default=ROOT, help="repository to check")
     args = parser.parse_args()
+    root = args.root.resolve()
     failures: list[str] = []
-    for raw_path in json.loads(args.paths_json or os.environ.get("TARGETS_JSON", "[]")):
-        page = (ROOT / raw_path).resolve()
+    paths = json.loads(args.paths_json or os.environ.get("TARGETS_JSON", '["README.md"]'))
+    for raw_path in paths:
+        page = (root / raw_path).resolve()
+        try:
+            page.relative_to(root)
+        except ValueError:
+            failures.append(f"outside repository: {raw_path}")
+            continue
+        if not page.is_file():
+            failures.append(f"missing documentation: {raw_path}")
+            continue
         if page.suffix.lower() not in {".md", ".mdx", ".rst"} or not page.is_file():
             continue
         for raw_link in MARKDOWN_LINK.findall(page.read_text(encoding="utf-8")):
@@ -37,7 +48,7 @@ def main() -> int:
                 continue
             destination = (page.parent / unquote(target)).resolve()
             try:
-                destination.relative_to(ROOT)
+                destination.relative_to(root)
             except ValueError:
                 failures.append(f"outside repository: {raw_path} -> {raw_link}")
                 continue
